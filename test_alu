@@ -1,0 +1,48 @@
+import cocotb
+from cocotb.triggers import Timer, NextTimeStep
+
+@cocotb.test()
+async def test_alu(dut):
+    test_failed = False  # Flag to track overall test failure
+    # Loop through all possible one-hot encoded 16-bit inputs
+    W = dut.W.value
+    MAX_VALUE = (2 ** W) - 1
+
+    for DATA_A in range(2**W):
+        for DATA_B in range(2**W):
+            for Control in range(3):
+                # Generate the one-hot input
+                dut.DATA_A.value = DATA_A
+                dut.DATA_B.value = DATA_B
+                dut.Control.value = Control
+
+                # Wait for a short delay to allow combinational logic to propagate
+                await Timer(5, units='us')
+
+                #await NextTimeStep()
+
+                if Control == 0:  # addition
+                    expected = (DATA_A + DATA_B)& MAX_VALUE  # Mask to W bits
+                elif Control == 1:  # subtraction
+                    expected = (DATA_A - DATA_B) & MAX_VALUE  # Mask to W bits
+                elif Control == 2:  # movenot
+                    expected = (~DATA_B) & MAX_VALUE  # Mask to W bits
+
+                #actual = int(dut.out.value)
+
+                if dut.Result.value!=expected:
+                    test_failed = True  # Mark overall test as failed
+                    cocotb.log.error(
+                        f"DATA_A={DATA_A:04b}, DATA_B={DATA_B:04b}, Control={Control:02b} → "
+                        f"Expected={expected:04b}, Got={int(dut.Result.value):04b}"
+                    )
+    Log_Design(dut)
+    # If dut.outdecoder.value is 0x0200 but expected_outdecoder is 0x0002, Log_Design prints all relevant signals to help debug why the decoder output is incorrect.
+
+
+
+    # Final assertion for the overall result
+    if test_failed:
+        raise AssertionError("Some test cases failed. Check logs for details.")
+    else:
+        cocotb.log.info("All test cases passed successfully!")
